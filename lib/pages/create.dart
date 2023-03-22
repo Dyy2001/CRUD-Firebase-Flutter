@@ -28,7 +28,7 @@ class _CreatePageState extends State<CreatePage> {
 
   File? _imageFile;
 
-// ...
+  // ...
 
   pickImage() async {
     ImagePicker imagePicker = ImagePicker();
@@ -39,11 +39,11 @@ class _CreatePageState extends State<CreatePage> {
 
     // setelah memilih gambar
     setState(() {
-      imageUrl = file.path;
+      _imageFile = File(file.path);
     });
   }
 
-// ...
+  // ...
 
   Widget _buildImage() {
     if (_imageFile != null) {
@@ -59,10 +59,25 @@ class _CreatePageState extends State<CreatePage> {
         height: 200,
       );
     } else {
-      return Container(
-        height: 200,
-        color: Colors.grey[300],
+      return Text('empty image');
+    }
+  }
+
+  Future<String> uploadImageToFirebaseStorage() async {
+    try {
+      String uniqueFileName = DateTime.now().millisecondsSinceEpoch.toString();
+      Reference referenceRoot = FirebaseStorage.instance.ref();
+      Reference referenceDirImages = referenceRoot.child('images');
+      Reference referenceImageToUpload =
+          referenceDirImages.child(uniqueFileName);
+      await referenceImageToUpload.putFile(_imageFile!);
+      String imageUrl = await referenceImageToUpload.getDownloadURL();
+      return imageUrl;
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mengunggah gambar: $error')),
       );
+      return '';
     }
   }
 
@@ -73,14 +88,7 @@ class _CreatePageState extends State<CreatePage> {
         if (user != null) {
           // Upload image to Firebase Storage if available
           if (_imageFile != null) {
-            String uniqueFileName =
-                DateTime.now().millisecondsSinceEpoch.toString();
-            Reference referenceRoot = FirebaseStorage.instance.ref();
-            Reference referenceDirImages = referenceRoot.child('images');
-            Reference referenceImageToUpload =
-                referenceDirImages.child(uniqueFileName);
-            await referenceImageToUpload.putFile(_imageFile!);
-            imageUrl = await referenceImageToUpload.getDownloadURL();
+            imageUrl = await uploadImageToFirebaseStorage();
           }
 
           await _reference.add({
@@ -141,13 +149,7 @@ class _CreatePageState extends State<CreatePage> {
               ),
             ),
             DView.spaceHeight(),
-            imageUrl.isEmpty
-                ? const Text('empty photo')
-                : Image.file(
-                    File(imageUrl),
-                    width: 280,
-                    fit: BoxFit.fitHeight,
-                  ),
+            _buildImage(),
             DView.spaceHeight(),
             ElevatedButton(
               onPressed: () => saveData(),
